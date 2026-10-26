@@ -1,0 +1,96 @@
+const {createApp,ref,reactive,computed,watch,h,nextTick}=Vue;
+const M=DemoModel;
+const ICONS={grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',home:'M3 10l9-7 9 7 M5 9v12h14V9 M9 21v-8h6v8',building:'M4 21V4h11v17 M15 10h5v11 M8 8h3 M8 12h3 M8 16h3 M2 21h20',users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M16 4a4 4 0 0 1 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0',lock:'M5 10h14v11H5z M8 10V6a4 4 0 0 1 8 0v4 M12 14v3',bill:'M6 3h12v18l-3-2-3 2-3-2-3 2z M9 8h6 M9 12h6',tool:'M14.7 6.3a5 5 0 0 0-6.4 6.4L3 18l3 3 5.3-5.3a5 5 0 0 0 6.4-6.4L14 13l-3-3z',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M9 3h6l1 4 4 1 1 6-4 2-1 4-6 1-2-4-4-1-1-6 4-2z',arrow:'M5 12h14 M14 7l5 5-5 5',chevron:'M9 5l7 7-7 7',down:'M6 9l6 6 6-6',search:'M21 21l-5-5 M18 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0',bell:'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9 M10 21h4',plus:'M12 5v14 M5 12h14',close:'M6 6l12 12 M18 6L6 18',check:'M5 12l4 4L19 6',clock:'M12 8v5l3 2 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',bolt:'M13 2L4 14h7l-1 8 10-13h-7z',water:'M12 2C9 7 5 10 5 15a7 7 0 0 0 14 0c0-5-4-8-7-13z',phone:'M7 2h10v20H7z M10 18h4',chart:'M4 3v18h17 M8 16v-5 M13 16V7 M18 16v-8',box:'M3 7l9-5 9 5v10l-9 5-9-5z M3 7l9 5 9-5 M12 12v10 M7.5 4.5l9 5',shield:'M12 2l8 4v6c0 5-8 10-8 10S4 17 4 12V6z M8 12l3 3 5-6',refresh:'M20 7V3l-3 3a8 8 0 1 0 3 10 M20 3h-5',download:'M12 3v12 M7 10l5 5 5-5 M4 16v5h16v-5',logout:'M9 3H4v18h5 M10 12h11 M17 8l4 4-4 4',wallet:'M3 5h16v15H3z M3 5V3h13 M15 11h6v5h-6z',activity:'M2 12h5l3-8 4 16 3-8h5',calendar:'M4 5h16v16H4z M8 2v6 M16 2v6 M4 10h16',help:'M9 8a3 3 0 1 1 4 3c-1 1-1 2-1 3 M12 17h.01 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0'};
+const Icon={props:['name','size'],render(){return h('svg',{width:this.size||20,height:this.size||20,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':1.65,'stroke-linecap':'square','stroke-linejoin':'bevel','aria-hidden':true},[h('path',{d:ICONS[this.name]||ICONS.grid})])}};
+createApp({components:{Icon},setup(){
+  let initial;try{const saved=JSON.parse(localStorage.getItem('yukong-demo-v1'));initial=saved?.version===M.VERSION&&Array.isArray(saved.rooms)?saved:M.seed()}catch{initial=M.seed()}
+  const s=reactive(initial), mode=ref(['mobile','platform'].includes(new URLSearchParams(location.search).get('view'))?new URLSearchParams(location.search).get('view'):'merchant'),page=ref('overview'),tenantId=ref('t1'),propertyId=ref(''),search=ref(''),filter=ref('all'),roomStatus=ref('all'),layout=ref('grid'),drawer=ref(null),drawerTab=ref('概览'),modal=ref(null),form=reactive({}),step=ref(1),toasts=ref([]),guide=ref(false),mobileRole=ref('resident'),mobileTab=ref('home'),mobileRoomId=ref('p1-r0'),financeTab=ref('bills'),settingsTab=ref('staff'),platformTicket=ref(false);
+  const tenant=computed(()=>s.tenants.find(t=>t.id===tenantId.value)||s.tenants[0]);
+  const properties=computed(()=>s.properties.filter(p=>p.tenantId===tenantId.value));
+  const tenantRooms=computed(()=>s.rooms.filter(r=>r.tenantId===tenantId.value));
+  const rooms=computed(()=>tenantRooms.value.filter(r=>(!propertyId.value||r.propertyId===propertyId.value)&&(roomStatus.value==='all'||r.status===roomStatus.value)&&(!search.value||[r.number,r.resident,r.lockSerial].some(v=>v?.includes(search.value)))));
+  const bills=computed(()=>s.bills.filter(b=>b.tenantId===tenantId.value&&(!propertyId.value||room(b.roomId)?.propertyId===propertyId.value)&&(filter.value==='all'||b.status===filter.value)&&(!search.value||[room(b.roomId)?.number,b.resident,b.id].some(v=>v?.includes(search.value)))));
+  const tickets=computed(()=>s.tickets.filter(t=>(mode.value==='platform'||t.tenantId===tenantId.value)&&(filter.value==='all'||t.status===filter.value)&&(!search.value||[t.title,room(t.roomId)?.number,t.id].some(v=>v?.includes(search.value)))));
+  const allBills=computed(()=>s.bills.filter(b=>b.tenantId===tenantId.value));
+  const stats=computed(()=>{const rr=tenantRooms.value,bb=allBills.value;return{total:rr.length,occupied:rr.filter(r=>r.status==='occupied').length,vacant:rr.filter(r=>r.status==='vacant').length,receivable:bb.reduce((a,b)=>a+b.amount,0),received:bb.filter(b=>b.status==='paid').reduce((a,b)=>a+b.amount,0),unpaid:bb.filter(b=>b.status==='unpaid').reduce((a,b)=>a+b.amount,0),offline:rr.filter(r=>!r.online).length,pending:s.tickets.filter(t=>t.tenantId===tenantId.value&&t.status==='pending').length}});
+  const devices=computed(()=>{const list=[];tenantRooms.value.filter(r=>!propertyId.value||r.propertyId===propertyId.value).forEach(r=>{[['门锁','lock','lockSerial'],['电表','bolt','electricSerial'],['水表','water','waterSerial']].forEach(([type,icon,key])=>{if(r[key]&&r[key]!=='未绑定')list.push({id:r.id+'-'+key,room:r,type,icon,serial:r[key],online:r.online})})});return list.filter(d=>(filter.value==='all'||filter.value===d.type||filter.value==='offline'&&!d.online)&&(!search.value||[d.serial,d.room.number,d.room.resident].some(v=>v?.includes(search.value))))});
+  const currentRoom=computed(()=>drawer.value?room(drawer.value):null);
+  const modalRoom=computed(()=>modal.value?.roomId?room(modal.value.roomId):null);
+  const modalBill=computed(()=>s.bills.find(b=>b.id===modal.value?.billId));
+  const modalTicket=computed(()=>s.tickets.find(t=>t.id===modal.value?.ticketId));
+  const mobileRoom=computed(()=>tenantRooms.value.find(r=>r.id===mobileRoomId.value)||tenantRooms.value[0]);
+  const mobileBills=computed(()=>s.bills.filter(b=>b.tenantId===tenantId.value&&b.roomId===mobileRoom.value?.id));
+  const mobileTickets=computed(()=>s.tickets.filter(t=>t.tenantId===tenantId.value&&(mobileRole.value==='staff'||t.roomId===mobileRoom.value?.id)));
+  const activeLogs=computed(()=>s.logs.filter(l=>mode.value==='platform'||l.tenantId===tenantId.value).filter(l=>!search.value||[l.action,l.detail,l.actor].some(v=>v?.includes(search.value))));
+  const orders=computed(()=>s.orders.filter(o=>!search.value||[o.id,o.product,tenantName(o.tenantId)].some(v=>v?.includes(search.value))));
+  const navs=computed(()=>mode.value==='platform'?[['overview','grid','平台概况'],['merchants','building','商户管理'],['delivery','box','硬件交付'],['plans','wallet','软件套餐'],['support','tool','平台售后'],['audit','shield','运行审计']]:[['overview','grid','工作台'],['rooms','home','房态总览'],['leases','users','住户与合同'],['devices','lock','智能设备'],['bills','bill','账单收款'],['tickets','tool','服务工单'],['settings','settings','组织设置']]);
+  const title=computed(()=>navs.value.find(n=>n[0]===page.value)?.[2]||'工作台');
+  const occupancy=computed(()=>stats.value.total?Math.round(stats.value.occupied/stats.value.total*100):0);
+  let persistenceWarning=false;
+  watch(s,()=>{try{localStorage.setItem('yukong-demo-v1',JSON.stringify(s))}catch{if(!persistenceWarning){persistenceWarning=true;toast('浏览器存储空间不足，本次操作仍在当前页面保留','warn')}}},{deep:true});
+  window.addEventListener('storage',event=>{if(event.key!=='yukong-demo-v1'||!event.newValue)return;try{const saved=JSON.parse(event.newValue);if(saved.version!==M.VERSION||!Array.isArray(saved.rooms))return;for(const key of Object.keys(M.seed()))if(key in saved)s[key]=saved[key];s.grants=saved.grants||[]}catch{}});
+  watch(tenantId,()=>{propertyId.value='';drawer.value=null;modal.value=null;search.value='';filter.value='all';roomStatus.value='all';mobileRoomId.value=tenantRooms.value.find(r=>r.status==='occupied')?.id||tenantRooms.value[0]?.id||''});
+  watch(mode,()=>{page.value='overview';search.value='';filter.value='all';drawer.value=null;modal.value=null;const u=new URL(location.href);u.searchParams.set('view',mode.value);history.replaceState({},'',u)});
+  watch(page,()=>{search.value='';filter.value='all';roomStatus.value='all';drawer.value=null;financeTab.value='bills'});
+  function room(id){return s.rooms.find(r=>r.id===id)}
+  function propertyName(id){return s.properties.find(p=>p.id===id)?.name||'项目'}
+  function tenantName(id){return s.tenants.find(t=>t.id===id)?.name||'商户'}
+  function initials(name){return (name||'必达公寓云').slice(0,1)}
+  function pct(n,d){return d?Math.round(n/d*100):0}
+  function statusLabel(status){return{occupied:'已入住',vacant:'待出租',reserved:'已预订',repair:'维修中',turnover:'撤权待同步',unpaid:'待支付',paid:'已支付',settlement:'结算中',pending:'待受理',processing:'处理中',resolved:'待确认',closed:'已完成',shipping:'配送中',installing:'待验收',done:'已验收'}[status]||status}
+  function statusClass(status){return({occupied:'green',vacant:'gray',reserved:'blue',repair:'orange',turnover:'orange',unpaid:'orange',paid:'green',settlement:'blue',pending:'orange',processing:'blue',resolved:'violet',closed:'green',shipping:'blue',installing:'orange',done:'green'})[status]||'gray'}
+  function toast(text,tone='success'){const t={id:M.id('toast'),text,tone};toasts.value.push(t);setTimeout(()=>toasts.value=toasts.value.filter(x=>x.id!==t.id),4200)}
+  function go(p){page.value=p;guide.value=false}
+  function openRoom(r,tab='概览'){if(!r)return;drawer.value=r.id;drawerTab.value=tab}
+  function openModal(kind,r,extra={}){Object.keys(form).forEach(k=>delete form[k]);modal.value={kind,roomId:r?.id,...extra};step.value=1;
+    if(kind==='checkin')Object.assign(form,{name:'',phone:'',start:M.TODAY,end:'2027-10-23',rent:(r.rent/100).toFixed(0),deposit:(r.deposit/100).toFixed(0)});
+    if(kind==='repair')Object.assign(form,{type:'设备故障',title:'',description:'',priority:'普通'});
+    if(kind==='ticket')Object.assign(form,{assignee:extra.ticket?.assignee||'周师傅'});
+    if(kind==='merchant')Object.assign(form,{name:'',owner:'',phone:'',plan:'标准版'});
+    if(kind==='delivery')Object.assign(form,{tenantId:tenantId.value,product:'TTLock 智能门锁',quantity:6,contact:tenant.value.owner});
+    if(kind==='renew')Object.assign(form,{tenantId:extra.targetId||tenantId.value,plan:s.tenants.find(t=>t.id===(extra.targetId||tenantId.value))?.plan||'标准版',expiry:'2027-10-24'});
+    if(kind==='staff')Object.assign(form,{name:'',role:'管家',scope:'全部门店'});
+    if(kind==='rooms')Object.assign(form,{propertyId:propertyId.value||properties.value[0]?.id,number:'501',quantity:4,rent:2200});
+    if(kind==='device')Object.assign(form,{action:extra.type==='电表'?'模拟通电':extra.type==='水表'?'模拟开阀':'模拟远程开门'});
+    if(kind==='lease-renew')Object.assign(form,{end:'2028-06-30'});
+    if(kind==='move')Object.assign(form,{targetRoomId:''});
+    if(kind==='grant')Object.assign(form,{name:'',purpose:'看房访客',end:'2026-10-25T18:00'});
+  }
+  function closeModal(){modal.value=null}
+  function nextStep(){if(step.value===1&&(!form.name.trim()||!/^1\d{10}$/.test(form.phone)))return toast('请填写住户姓名和11位手机号','warn');if(step.value===2&&(!form.start||!form.end||form.end<form.start||Number(form.rent)<=0||Number(form.deposit)<0))return toast('请检查租期、租金和押金','warn');step.value++}
+  function submit(){try{const kind=modal.value?.kind,r=modalRoom.value;
+    if(kind==='checkin'){M.checkIn(s,tenantId.value,r.id,form);toast(r.online?'入住完成，门锁授权已同步（模拟）':'入住完成，离线设备授权待同步（模拟）');mobileRoomId.value=r.id}
+    if(kind==='checkout'){M.checkOut(s,tenantId.value,r.id);toast(r.online?'退租结算已提交，授权已回收（模拟）':'结算已提交，撤权任务等待设备上线','warn')}
+    if(kind==='payment'){const b=modalBill.value;M.pay(s,b.tenantId,b.id);toast('模拟支付成功，账单状态已更新')}
+    if(kind==='device'){if(form.action.includes('抄表'))M.readMeters(s,r.tenantId,r.propertyId,r.id);const status=M.control(s,r.tenantId,r.id,form.action.replace('模拟',''));toast(status==='已确认'?'模拟指令已确认，未操作真实设备':'设备离线，模拟指令已进入待同步队列',status==='已确认'?'success':'warn')}
+    if(kind==='repair'){M.ticket(s,tenantId.value,r.id,{...form,source:mode.value==='mobile'&&mobileRole.value==='resident'?'住户报修':'管家上报'});toast('报修已提交，可在商户工单中处理')}
+    if(kind==='lease-renew'){M.renewLease(s,tenantId.value,r.id,form.end);toast('租约已续期，设备授权按在线状态更新（模拟）')}
+    if(kind==='move'){const target=M.moveRoom(s,tenantId.value,r.id,form.targetRoomId);mobileRoomId.value=target.id;drawer.value=target.id;toast('换房完成，历史账单保留于原房间（模拟）')}
+    if(kind==='grant'){M.grant(s,tenantId.value,r.id,form);toast('临时授权记录已创建（模拟）')}
+    if(kind==='merchant'){if(!form.name.trim()||!form.owner.trim()||!/^1\d{10}$/.test(form.phone))throw Error('请完整填写商户名称、联系人和手机号');const id=M.id('tenant');s.tenants.push({id,name:form.name.trim(),short:form.name.trim().slice(0,2),owner:form.owner.trim(),phone:form.phone,plan:form.plan,limit:form.plan==='专业版'?500:100,expiry:'2026-11-23',active:true});s.properties.push({id:M.id('property'),tenantId:id,name:'首个项目',address:'待完善项目地址'});M.log(s,id,'开通演示商户',form.name);toast('商户已开通，可进入管理台添加房间')}
+    if(kind==='delivery'){if(!form.contact.trim()||Number(form.quantity)<1||Number(form.quantity)>200)throw Error('请填写联系人和1–200的交付数量');s.orders.unshift({id:M.id('JFD'),tenantId:form.tenantId,product:form.product,quantity:Number(form.quantity),contact:form.contact,status:'pending',date:M.TODAY});M.log(s,form.tenantId,'创建交付单',form.product+' × '+form.quantity,'交付');toast('交付单已创建，可继续演示发货与验收')}
+    if(kind==='renew'){const t=s.tenants.find(t=>t.id===form.tenantId);t.plan=form.plan;t.limit=form.plan==='专业版'?500:form.plan==='旗舰版'?2000:100;t.expiry=form.expiry;M.log(s,t.id,'调整软件套餐',form.plan+' · '+form.expiry,'套餐');toast('演示套餐已更新，不影响住户门锁权限')}
+    if(kind==='staff'){if(!form.name.trim())throw Error('请填写员工姓名');s.staff.push({id:M.id('staff'),tenantId:tenantId.value,name:form.name.trim(),role:form.role,scope:form.scope,active:true});M.log(s,tenantId.value,'添加员工',form.name);toast('员工已添加（演示）')}
+    if(kind==='rooms'){const count=Number(form.quantity),number=Number(form.number),rent=Math.round(Number(form.rent)*100);if(!Number.isInteger(count)||count<1||count>20||!Number.isInteger(number)||number<1||!Number.isFinite(rent)||rent<=0)throw Error('请填写有效房号、租金，数量为1–20间');if(tenantRooms.value.length+count>tenant.value.limit)throw Error('超过当前演示套餐房间额度');if(!form.propertyId)throw Error('请先选择项目');for(let i=0;i<count;i++)if(s.rooms.some(r=>r.propertyId===form.propertyId&&r.number===String(number+i)))throw Error('房号已存在，请使用其他起始房号');for(let i=0;i<count;i++)s.rooms.push({id:M.id('room'),tenantId:tenantId.value,propertyId:form.propertyId,number:String(number+i),floor:Math.floor((number+i)/100),status:'vacant',type:'精装单间',area:28,rent,deposit:rent,resident:'',phone:'',online:false,battery:0,grant:'未安装设备',lockSerial:'未绑定',electricSerial:'未绑定',waterSerial:'未绑定',electric:0,water:0,lastElectric:0,lastWater:0,readAt:'尚未采集'});M.log(s,tenantId.value,'批量添加房间',count+' 间');toast('房间已添加，设备状态为未绑定')}
+    if(kind==='reset'){const fresh=M.seed();Object.keys(s).forEach(k=>delete s[k]);Object.assign(s,fresh);tenantId.value='t1';propertyId.value='';mobileRoomId.value='p1-r0';drawer.value=null;toast('演示数据已恢复为初始状态')}
+    closeModal();
+  }catch(error){toast(error.message,'warn')}}
+  function meterSync(){const result=M.readMeters(s,tenantId.value,propertyId.value);toast(`已同步 ${result.synced} 间，跳过离线 ${result.skipped} 间，新增账单 ${result.created} 笔`)}
+  function remind(b){M.log(s,b.tenantId,'模拟催缴提醒',room(b.roomId)?.number+' · '+b.resident,'财务');b.reminded=true;toast('催缴提醒已记录（演示，不发送真实消息）')}
+  function advanceTicket(t){try{const next={pending:'processing',processing:'resolved',resolved:'closed'}[t.status];if(!next)return;M.updateTicket(s,t.tenantId,t.id,next,form.assignee||t.assignee||'周师傅');toast('工单状态已更新');closeModal()}catch(e){toast(e.message,'warn')}}
+  function transferSupport(t){if(t.platformSupport)return toast('此工单已转平台售后','warn');t.platformSupport=true;t.supportStatus='待受理';M.log(s,t.tenantId,'转平台硬件售后',t.title,'工单');toast('已转平台售后，可切换平台运营台查看')}
+  function advanceSupport(t){const next={'待受理':'处理中','处理中':'已完成'};t.supportStatus=next[t.supportStatus]||'已完成';M.log(s,t.tenantId,'更新平台售后',t.title+' · '+t.supportStatus,'售后');toast('平台售后处理状态已更新')}
+  function advanceOrder(o){const next={pending:'shipping',shipping:'installing',installing:'done'};if(!next[o.status])return;o.status=next[o.status];M.log(s,o.tenantId,'更新硬件交付',o.id+' · '+statusLabel(o.status),'交付');toast('交付状态已更新为'+statusLabel(o.status))}
+  function switchTenant(t){tenantId.value=t.id;mode.value='merchant';page.value='overview'}
+  function toggleStaff(staff){if(staff.role==='商户管理员')return toast('演示中保留管理员账户','warn');staff.active=!staff.active;M.log(s,staff.tenantId,staff.active?'启用员工':'停用员工',staff.name);toast(staff.active?'员工已启用':'员工系统权限已停用（演示）')}
+  function exportData(){const rows=page.value==='bills'?[['账单号','房间','住户','类型','金额（元）','状态'],...bills.value.map(b=>[b.id,room(b.roomId)?.number,b.resident,b.kind,(b.amount/100).toFixed(2),statusLabel(b.status)])]:page.value==='audit'?[['时间','商户','操作人','操作','详情'],...activeLogs.value.map(l=>[l.time,tenantName(l.tenantId),l.actor,l.action,l.detail])]:[['项目','房间','出租状态','住户','月租（元）'],...rooms.value.map(r=>[propertyName(r.propertyId),r.number,statusLabel(r.status),r.resident,(r.rent/100).toFixed(2)])];const csv='\ufeff'+rows.map(row=>row.map(v=>'"'+String(v??'').replace(/^[=+@-]/,"'$&").replaceAll('"','""')+'"').join(',')).join('\r\n');const a=document.createElement('a'),url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.href=url;a.download='必达公寓云-'+title.value+'-演示.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);toast('已导出演示数据')}
+  function downloadSummary(r){const text=`必达公寓云 · 合同信息演示摘要\n非正式合同，不用于签署\n\n房间：${propertyName(r.propertyId)} ${r.number}\n住户：${r.resident||r.previousResident||'—'}\n租期：${r.start} 至 ${r.end}\n月租：${M.money(r.rent)}\n押金：${M.money(r.deposit)}\n`;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'}));a.download=r.number+'-合同演示摘要.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000)}
+  function startGuide(){mode.value='merchant';page.value='rooms';tenantId.value='t1';guide.value=false;nextTick(()=>{roomStatus.value='vacant';const r=tenantRooms.value.find(r=>r.status==='vacant');if(r)openModal('checkin',r);else toast('空房已用完，可重置演示数据后重新体验','warn')})}
+  const floors=computed(()=>[...new Set(rooms.value.map(r=>r.floor))].sort((a,b)=>a-b));
+  const leaseRooms=computed(()=>tenantRooms.value.filter(r=>(r.resident||r.previousResident)&&(!search.value||[r.number,r.resident,r.previousResident].some(v=>v?.includes(search.value)))));
+  const checkoutSummary=computed(()=>{const r=modalRoom.value;if(!r)return{};const due=s.bills.filter(b=>b.roomId===r.id&&b.tenantId===r.tenantId&&b.status==='unpaid').reduce((a,b)=>a+b.amount,0);return{due,refund:Math.max(0,r.deposit-due),remaining:Math.max(0,due-r.deposit)}});
+  const supportTickets=computed(()=>s.tickets.filter(t=>t.platformSupport));
+  function modeTo(value){mode.value=value}
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(modal.value)modal.value=null;else if(drawer.value)drawer.value=null;else guide.value=false}});
+  return {s,mode,page,tenantId,propertyId,search,filter,roomStatus,layout,drawer,drawerTab,modal,form,step,toasts,guide,mobileRole,mobileTab,mobileRoomId,financeTab,settingsTab,platformTicket,tenant,properties,tenantRooms,rooms,bills,tickets,allBills,stats,devices,currentRoom,modalRoom,modalBill,modalTicket,mobileRoom,mobileBills,mobileTickets,activeLogs,orders,navs,title,occupancy,floors,leaseRooms,checkoutSummary,supportTickets,room,propertyName,tenantName,initials,pct,statusLabel,statusClass,toast,go,openRoom,openModal,closeModal,nextStep,submit,meterSync,remind,advanceTicket,transferSupport,advanceSupport,advanceOrder,switchTenant,toggleStaff,exportData,downloadSummary,startGuide,modeTo,money:M.money};
+}}).mount('#app');

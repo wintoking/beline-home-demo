@@ -1,0 +1,7 @@
+node_modules/
+.local/
+.openai/
+.env*
+!.env.example
+wechat/project.private.config.json
+*.log
