@@ -29,3 +29,7 @@
 - Vue 的 MIT 许可保留在 `dist/vendor/VUE-LICENSE.txt`。
 - GitHub Pages 工作流采用 [GitHub 官方静态站点模板](https://github.com/actions/starter-workflows/blob/main/pages/static.yml)的标准操作，增加现有演示检查，并只部署 `dist/`。
 - 原始 VI PDF、个人账号文件、运行缓存、凭据和本机环境文件不进入分享仓库。
+
+## 业务扩展一致性 · 2026-10-27
+
+新业务页、表单、凭证二维码、合同 PDF 和三角色手机卡片沿用上述 VI。Beline UI 子集扩至 865 个源码字符、253516 字节；PDF 使用独立静态 Beline Document 中文字体并附同一 OFL 许可，按需加载。此次同时扩展业务流程，原文“没有改动业务逻辑”仅描述 10 月 26 日视觉改版。

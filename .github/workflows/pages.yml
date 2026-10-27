@@ -25,6 +25,9 @@ jobs:
       - name: Check the demo
         run: |
           node test-model.cjs
+          node test-business.cjs
+          node test-native.cjs
+          node test-exports.cjs
           node validate.cjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

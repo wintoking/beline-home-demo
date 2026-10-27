@@ -1,1 +1,9 @@
-{"name":"beline-home-apartment-demo","private":true,"version":"1.0.0","scripts":{"dev":"node preview.mjs","test":"node test-model.cjs"}}
+{
+  "name": "beline-home-apartment-demo",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "node preview.mjs",
+    "test": "node test-model.cjs && node test-business.cjs && node test-native.cjs && node test-exports.cjs && node validate.cjs"
+  }
+}
